@@ -35,10 +35,9 @@ pointing at it. [Your first deploy](https://github.com/smallhoursorg/hotserve/bl
 whole path from a fresh server, with this app as its one fork; the
 three steps below are its second half.
 
-**1. Install Deno on the box, under `/usr/local`** — as root, while
-you still have it: the administrator the box repo creates later cannot
-install packages. The app's sandbox contains `/usr` and nothing else
-of the host's software, so a Deno in a home directory would not exist
+**1. Install Deno on the box, under `/usr/local`**, as root. The app's
+sandbox contains `/usr` and nothing else of the host's software, so a
+Deno in a home directory would not exist
 for it. Use the version in `.deno-version`, which is what the workflow
 builds with:
 
@@ -52,12 +51,15 @@ apt install -y unzip && unzip -o "$f" deno -d /usr/local/bin
 ```
 
 **2. Add the app to the box's Caddyfile**, with the lines from
-`hotserve.caddy` inside its `app` block. As root that is
-`/etc/hotserve/Caddyfile`: edit, `hotserve validate --config` it,
-`systemctl reload hotserve`. Once the box has a
-[box repo](https://github.com/smallhoursorg/hotserve/tree/main/examples/box#change-the-config), it is that repo's `Caddyfile`
-and `make push`. The box example ships this app's block already.
-Either way, the file is:
+`hotserve.caddy` inside its `app` block. In the box's
+[repo](https://github.com/smallhoursorg/hotserve/tree/main/examples/box#change-the-config)
+that is `<host>/Caddyfile`, committed signed and pushed to `main`; the
+box template ships the Node app's block, and this app's `command`,
+`pre_start` and `env` lines replace those. On a box without one, it is
+`/etc/hotserve/Caddyfile`, as root: edit, `hotserve validate --config`
+it, `systemctl reload hotserve`. Either way the app's part is the
+same, and a box repo's file keeps its `box` block and the deploy
+host's `box_webhook` line as they are. Without those two, the file is:
 
 ```caddyfile
 {
@@ -100,7 +102,10 @@ set to `https://deploy.example.com/example` (Settings → Secrets and
 variables → Actions → Variables, or
 `gh variable set HOTSERVE_URL -R your-org/example --body https://deploy.example.com/example`).
 Then push to `main`. A run without `HOTSERVE_URL` stops at its first
-step, saying so, and publishes nothing. The workflow publishes the
+step, saying so, and publishes nothing. The URL must be `https://`:
+the request carries the run's token, so `scripts/deploy.sh` refuses
+any other scheme before it mints one (`HOTSERVE_ALLOW_HTTP=1` lifts
+that, for a local test box only). The workflow publishes the
 tarball as a GitHub release and the box fetches it — so every deployed
 version stays on GitHub. The box fetches the asset by its API URL with
 the job's own token, so a private repo deploys the same way as a
@@ -182,5 +187,9 @@ deno task deploy
 ```
 
 The version defaults to the commit, and versions are immutable on the
-box, so that deploys once per commit; for an uncommitted build set one
-(`VERSION=wip-3 deno task deploy`).
+box, so that deploys once per commit. While tracked files have
+uncommitted changes the script refuses the default rather than label
+them with the commit (it checks the checkout when it runs, not the
+build); set a version for an uncommitted build
+(`VERSION=wip-3 deno task deploy`). A version is 1 to 64 letters,
+digits, `.`, `_` and `-`, not starting with `.`.
